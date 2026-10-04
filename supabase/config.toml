@@ -1,0 +1,2 @@
+[functions.serve-ad]
+verify_jwt = false
