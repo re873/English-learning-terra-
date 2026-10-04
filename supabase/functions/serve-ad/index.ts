@@ -1,6 +1,6 @@
 // Edge function: serve-ad
 // Proxies the Adscod interstitial ad API so the browser never sees the API key.
-// The X-Adscod-Key header is set server-side from the ADSCOP_API_KEY secret.
+// The X-Adscod-Key header is fetched from the app_config table (service role only).
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +17,34 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const apiKey = Deno.env.get("ADSCOP_API_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: "Server not configured." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch the Adscod API key from the app_config table (service role bypasses RLS)
+    const configResp = await fetch(`${supabaseUrl}/rest/v1/app_config?key=eq.adscod_api_key&select=value`, {
+      method: "GET",
+      headers: {
+        "apikey": serviceRoleKey,
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!configResp.ok) {
+      return new Response(
+        JSON.stringify({ error: "Could not read ad key from config." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const configRows = await configResp.json();
+    const apiKey = Array.isArray(configRows) && configRows.length > 0 ? configRows[0].value : null;
     if (!apiKey) {
       return new Response(
         JSON.stringify({ error: "Ad key not configured." }),
@@ -25,6 +52,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Fetch the ad from Adscod
     const resp = await fetch(ADSCOD_URL, {
       method: "GET",
       headers: {
