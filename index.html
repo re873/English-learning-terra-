@@ -3223,24 +3223,6 @@
     </div>
 
     <!-- ============================================================
-         INTERSTITIAL AD OVERLAY
-         ============================================================ -->
-    <div class="ad-overlay" id="adOverlay" role="dialog" aria-modal="true" aria-label="Advertisement">
-        <div class="ad-card">
-            <div class="ad-header">
-                <span class="ad-header-label">Sponsored</span>
-                <span class="ad-timer" id="adTimer"></span>
-            </div>
-            <div class="ad-body" id="adBody">
-                <div class="ad-loading">Loading...</div>
-            </div>
-            <div class="ad-footer">
-                <button class="ad-skip-btn" id="adSkipBtn" disabled>Skip Ad</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============================================================
          ONBOARDING OVERLAY
          ============================================================ -->
     <div class="onboarding-overlay hidden" id="onboardingOverlay">
@@ -3307,107 +3289,6 @@
             const STORAGE_KEY = "elh_data_v1";
             const DAILY_LESSON_COUNT = 8;
             const QUIZ_QUESTION_COUNT = 5;
-
-            // ============================================================
-            // INTERSTITIAL AD SYSTEM
-            // ============================================================
-            var AD_SUPABASE_URL = '';
-            var AD_SUPABASE_ANON_KEY = '';
-            try { AD_SUPABASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_URL) ? import.meta.env.VITE_SUPABASE_URL : ''; } catch(e) {}
-            try { AD_SUPABASE_ANON_KEY = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) ? import.meta.env.VITE_SUPABASE_ANON_KEY : ''; } catch(e) {}
-            var AD_COOLDOWN_MS = 30 * 1000;
-            var adLastShown = 0;
-            var adSkipCountdown = 0;
-            var adSkipInterval = null;
-
-            function canShowAd() {
-                return Date.now() - adLastShown >= AD_COOLDOWN_MS;
-            }
-
-            async function fetchAdContent() {
-                if (!AD_SUPABASE_URL || !AD_SUPABASE_ANON_KEY) return null;
-                try {
-                    var resp = await fetch(AD_SUPABASE_URL + '/functions/v1/serve-ad', {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': 'Bearer ' + AD_SUPABASE_ANON_KEY,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    if (!resp.ok) return null;
-                    var data = await resp.json();
-                    if (data && (data.url || data.click_url || data.ad_url)) {
-                        return {
-                            imageUrl: data.image || data.creative_url || data.icon || null,
-                            title: data.title || data.name || 'Learn More',
-                            description: data.description || data.text || 'Discover something new today!',
-                            clickUrl: data.url || data.click_url || data.ad_url || '#'
-                        };
-                    }
-                    return null;
-                } catch (e) {
-                    return null;
-                }
-            }
-
-            function renderAdContent(ad) {
-                if (!ad) {
-                    return '<div class="ad-fallback">' +
-                        '<div class="ad-fallback-icon">📚</div>' +
-                        '<h3>Keep Learning!</h3>' +
-                        '<p>Great job — you are making excellent progress. Continue exploring more lessons and quizzes.</p>' +
-                        '</div>';
-                }
-                var html = '<div class="ad-content">';
-                if (ad.imageUrl) html += '<img src="' + ad.imageUrl + '" alt="Advertisement" loading="lazy">';
-                html += '<h3>' + (ad.title || 'Sponsored') + '</h3>';
-                if (ad.description) html += '<p>' + ad.description + '</p>';
-                if (ad.clickUrl && ad.clickUrl !== '#') html += '<a href="' + ad.clickUrl + '" target="_blank" rel="noopener noreferrer">Learn More →</a>';
-                html += '</div>';
-                return html;
-            }
-
-            function closeAdOverlay() {
-                document.getElementById('adOverlay').classList.remove('open');
-                document.body.style.overflow = '';
-                if (adSkipInterval) { clearInterval(adSkipInterval); adSkipInterval = null; }
-            }
-
-            function startAdSkipTimer() {
-                adSkipCountdown = 5;
-                var btn = document.getElementById('adSkipBtn');
-                var timerEl = document.getElementById('adTimer');
-                if (btn) btn.disabled = true;
-                if (timerEl) timerEl.textContent = 'Skip in ' + adSkipCountdown + 's';
-
-                adSkipInterval = setInterval(function () {
-                    adSkipCountdown--;
-                    if (adSkipCountdown <= 0) {
-                        if (btn) { btn.disabled = false; btn.textContent = 'Skip Ad →'; }
-                        if (timerEl) timerEl.textContent = '';
-                        if (adSkipInterval) { clearInterval(adSkipInterval); adSkipInterval = null; }
-                    } else {
-                        if (timerEl) timerEl.textContent = 'Skip in ' + adSkipCountdown + 's';
-                    }
-                }, 1000);
-            }
-
-            async function showInterstitialAd() {
-                if (!canShowAd()) return;
-                adLastShown = Date.now();
-
-                var overlay = document.getElementById('adOverlay');
-                var body = document.getElementById('adBody');
-                if (!overlay || !body) return;
-
-                body.innerHTML = '<div class="ad-loading">Loading...</div>';
-                overlay.classList.add('open');
-                document.body.style.overflow = 'hidden';
-                startAdSkipTimer();
-
-                var ad = await fetchAdContent();
-                body.innerHTML = renderAdContent(ad);
-            }
 
             // ============================================================
             // EDUCATIONAL CONTENT DATABASE
@@ -3930,13 +3811,7 @@
             // ============================================================
             // NAVIGATION (internal, no lock)
             // ============================================================
-            var AD_TRIGGER_PAGES = { learn: true, vocabulary: true, grammar: true, daily: true, practice: true };
-
             function navigateTo(viewName) {
-                if (AD_TRIGGER_PAGES[viewName] && canShowAd()) {
-                    showInterstitialAd();
-                }
-
                 const views = document.querySelectorAll(".view");
                 views.forEach(function (v) { v.classList.remove("active"); });
 
@@ -4608,7 +4483,6 @@
 
                 showToast("Quiz complete: " + pct + "%", pct >= 80 ? "success" : "info");
                 renderQuizHistory();
-                showInterstitialAd();
             }
 
             function renderQuizHistory() {
@@ -5318,14 +5192,8 @@
                     if (e.target === this) closeModal();
                 });
 
-                // --- Interstitial ad ---
-                document.getElementById("adSkipBtn").addEventListener("click", closeAdOverlay);
-                document.getElementById("adOverlay").addEventListener("click", function (e) {
-                    if (e.target === this) closeAdOverlay();
-                });
                 document.addEventListener("keydown", function (e) {
                     if (e.key === "Escape") {
-                        if (document.getElementById("adOverlay").classList.contains("open")) closeAdOverlay();
                         if (document.getElementById("modalOverlay").classList.contains("open")) closeModal();
                         if (document.getElementById("mobileMenu").classList.contains("open")) closeMobileMenu();
                     }
